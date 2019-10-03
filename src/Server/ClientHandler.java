@@ -1,22 +1,21 @@
 package Server;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.Socket;
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
 
 public class ClientHandler extends Thread {
 
-    private DataInputStream inputStream;
-    private DataOutputStream outputStream;
+	private ObjectInputStream objectInputStream;
+	private ObjectOutputStream objectOutputStream;
+    private DateProvider dateProvider;
 
-    public ClientHandler(Socket socket, String welcomeMessage) {
+    public ClientHandler(Socket socket) {
         try {
-            inputStream = new DataInputStream(socket.getInputStream());
-            outputStream = new DataOutputStream(socket.getOutputStream());
-            outputStream.writeUTF(welcomeMessage);
-            outputStream.flush();
+        	objectInputStream = new ObjectInputStream(socket.getInputStream());
+        	objectOutputStream = new ObjectOutputStream(socket.getOutputStream());
+           
+            dateProvider = new DateProviderImpl();
         } catch (Exception e) {
             System.out.println(e);
         }
@@ -25,23 +24,20 @@ public class ClientHandler extends Thread {
     public void run() {
         try {
             boolean running = true;
-            String command;
             while (running) {
-                command = inputStream.readUTF();
-                if (command.equalsIgnoreCase("time")) {
-                    SimpleDateFormat dateFormatter = new SimpleDateFormat("E MMM dd HH:mm:ss z yyyy");
-                    outputStream.writeUTF(dateFormatter.format(Calendar.getInstance().getTime()));
-                    outputStream.flush();
-                } else if (command.equals("")) {
-                    System.out.println("Closing connection and thread");
-                    running = false;
-                } else {
-                    outputStream.writeUTF(command.toUpperCase());
-                    outputStream.flush();
-                }
+                Object object = objectInputStream.readObject();
+                String result = "";
+                if (object instanceof DateRpcRequest) {
+                	DateRpcRequest dateRpcRequest = (DateRpcRequest) object;
+                	if (dateRpcRequest.getMethod().equals("getDateOrCaps")) {
+                		result = dateProvider.getDateOrCaps(dateRpcRequest.getCommand());
+                	} else {
+                		throw new UnsupportedOperationException();
+                	}
+                } 
+                objectOutputStream.writeObject(result);
             }
         } catch (Exception e) {
-        	
         }
     }
 }
